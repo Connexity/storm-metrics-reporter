@@ -31,7 +31,7 @@ public class SimpleGraphiteStormMetricProcessor extends SimpleStormMetricProcess
         super(topologyName, config);
 
         try {
-            graphiteReporter = new GraphiteReporter(StormMetricProcessor.metricsRegistry,
+            graphiteReporter = new GraphiteReporter(StormMetricProcessor.METRICS_REGISTRY,
                     getGraphiteServerHost(config),
                     getGraphiteServerPort(config),
                     Metric.joinNameFragments("Storm", topologyName));
@@ -42,19 +42,19 @@ public class SimpleGraphiteStormMetricProcessor extends SimpleStormMetricProcess
         }
     }
 
-    private String getGraphiteServerHost(final Map config) {
+    String getGraphiteServerHost(final Map config) {
         return config.containsKey(METRICS_HOST) ?
                 config.get(METRICS_HOST).toString() :
                 DEFAULT_METRICS_HOST;
     }
 
-    private int getGraphiteServerPort(final Map config) {
+    int getGraphiteServerPort(final Map config) {
         return config.containsKey(METRICS_PORT) ?
                 Integer.parseInt(config.get(METRICS_PORT).toString()) :
                 DEFAULT_METRICS_PORT;
     }
 
-    private int getGraphiteReportPeriod(final Map config) {
+    int getGraphiteReportPeriod(final Map config) {
         return config.containsKey(REPORT_PERIOD_IN_SEC) ?
                 Integer.parseInt(config.get(REPORT_PERIOD_IN_SEC).toString()) :
                 DEFAULT_REPORT_PERIOD_SEC;

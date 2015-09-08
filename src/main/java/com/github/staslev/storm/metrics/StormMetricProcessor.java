@@ -1,6 +1,7 @@
 package com.github.staslev.storm.metrics;
 
 import backtype.storm.metric.api.IMetricsConsumer;
+import com.yammer.metrics.core.MetricName;
 import com.yammer.metrics.core.MetricsRegistry;
 
 /**
@@ -12,7 +13,24 @@ import com.yammer.metrics.core.MetricsRegistry;
  */
 public interface StormMetricProcessor {
 
-  MetricsRegistry metricsRegistry = new MetricsRegistry();
+  MetricsRegistry METRICS_REGISTRY = new MetricsRegistry();
 
-  void process(final Metric metric, final IMetricsConsumer.TaskInfo taskInfo);
+  /**
+   * Returns the metric name for the storm metric produced by a task.
+   *
+   * @param topology storm topology id
+   * @param metric storm metric object
+   * @param taskInfo information about the task that generates the metric
+   * @return the name for the yammer metric
+   */
+  MetricName name(final String topology, final Metric metric, final IMetricsConsumer.TaskInfo taskInfo);
+
+  /**
+   * Processes the storm metric
+   *
+   * @param topology storm topology id
+   * @param metric storm metric object
+   * @param taskInfo information about the task that generates the metric
+   */
+  void process(final String topology, final Metric metric, final IMetricsConsumer.TaskInfo taskInfo);
 }

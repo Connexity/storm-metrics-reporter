@@ -31,8 +31,8 @@ public class SimpleStormMetricProcessor implements StormMetricProcessor {
 
     public static final Logger LOG = LoggerFactory.getLogger(SimpleStormMetricProcessor.class);
 
-    protected final String topologyName;
-    protected Map config;
+    final String topologyName;
+    Map config;
 
     public SimpleStormMetricProcessor(final String topologyName,
                                       final Map config) {
@@ -42,20 +42,24 @@ public class SimpleStormMetricProcessor implements StormMetricProcessor {
 
     private SettableGauge<Double> createOrUpdateGauge(final Metric metric, final MetricName metricName) {
         final SettableGauge<Double> settableGauge =
-                (SettableGauge<Double>) metricsRegistry.newGauge(metricName, new SettableGauge<>(metric.getValue()));
+                (SettableGauge<Double>) METRICS_REGISTRY.newGauge(metricName, new SettableGauge<>(metric.getValue()));
         settableGauge.setValue(metric.getValue());
         return settableGauge;
     }
 
     @Override
-    public void process(final Metric metric, final IMetricsConsumer.TaskInfo taskInfo) {
+    public MetricName name(final String topology, final Metric metric, final IMetricsConsumer.TaskInfo taskInfo) {
+        return new MetricName(Metric.joinNameFragments(taskInfo.srcWorkerHost,
+                        taskInfo.srcWorkerPort,
+                        metric.getComponent()),
+                        Integer.toString(taskInfo.srcTaskId),
+                        metric.getOperation());
+    }
 
-        final MetricName metricName = new MetricName(Metric.joinNameFragments(taskInfo.srcWorkerHost,
-                taskInfo.srcWorkerPort,
-                metric.getComponent()),
-                Integer.toString(taskInfo.srcTaskId),
-                metric.getOperation());
+    @Override
+    public void process(final String topology, final Metric metric, final IMetricsConsumer.TaskInfo taskInfo) {
 
+        final MetricName metricName = name(topology, metric, taskInfo);
         try {
             createOrUpdateGauge(metric, metricName);
         } catch (final Exception e) {
