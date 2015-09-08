@@ -1,11 +1,7 @@
 package com.github.staslev.storm.metrics.yammer;
 
-import backtype.storm.metric.api.IMetricsConsumer;
 import com.github.staslev.storm.metrics.Metric;
 import com.github.staslev.storm.metrics.StormMetricProcessor;
-import com.yammer.metrics.core.Gauge;
-import com.yammer.metrics.core.MetricName;
-import com.yammer.metrics.core.MetricsRegistry;
 import com.yammer.metrics.reporting.GraphiteReporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,98 +9,54 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-/**
- * A straight forward {@link StormMetricProcessor} implementation that reports values according to the following
- * metric hierarchy:
- * <pre>
- *   -Storm
- *    -WorkerHost
- *      -WorkerPort
- *        -ComponentName
- *          -TaskId
- *            -OperationName
- *              -value
- * </pre>
- * <p/>
- * Aggregations (e.g., stats per component) are assumed to be the back-end's responsibility in this case.
- * <p/>
- * <br/>Client might want to implement a custom StormMetricGauge in order to employ the metric naming convention
- * that fits them best. This implementation is more of a showcase.
- */
-public class SimpleGraphiteStormMetricProcessor extends StormMetricProcessor {
+public class SimpleGraphiteStormMetricProcessor extends SimpleStormMetricProcessor {
 
-  public class SettableGauge<T> extends Gauge<T> {
+    public static final String REPORT_PERIOD_IN_SEC = "metric.reporter.graphite.report.period.sec";
+    private static final int DEFAULT_REPORT_PERIOD_SEC = 30;
 
-    protected volatile T value;
+    public static final String METRICS_HOST = "metric.reporter.graphite.report.host";
+    private static final String DEFAULT_METRICS_HOST = "localhost";
 
-    public SettableGauge(T value) {
-      this.value = value;
+    public static final String METRICS_PORT = "metric.reporter.graphite.report.port";
+    private static final int DEFAULT_METRICS_PORT = 8080;
+
+
+    public static final Logger LOG = LoggerFactory.getLogger(SimpleGraphiteStormMetricProcessor.class);
+
+    @SuppressWarnings("FieldCanBeLocal")
+    private final GraphiteReporter graphiteReporter;
+
+    public SimpleGraphiteStormMetricProcessor(final String topologyName,
+                                              final Map config) {
+        super(topologyName, config);
+
+        try {
+            graphiteReporter = new GraphiteReporter(StormMetricProcessor.metricsRegistry,
+                    getGraphiteServerHost(config),
+                    getGraphiteServerPort(config),
+                    Metric.joinNameFragments("Storm", topologyName));
+
+            graphiteReporter.start(getGraphiteReportPeriod(config), TimeUnit.SECONDS);
+        } catch (final Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public void setValue(T value) {
-      this.value = value;
+    private String getGraphiteServerHost(final Map config) {
+        return config.containsKey(METRICS_HOST) ?
+                config.get(METRICS_HOST).toString() :
+                DEFAULT_METRICS_HOST;
     }
 
-    @Override
-    public T value() {
-      return value;
+    private int getGraphiteServerPort(final Map config) {
+        return config.containsKey(METRICS_PORT) ?
+                Integer.parseInt(config.get(METRICS_PORT).toString()) :
+                DEFAULT_METRICS_PORT;
     }
-  }
 
-  public static final String REPORT_PERIOD_IN_SEC = "metric.reporter.graphite.report.period.sec";
-
-  private static final int DEFAULT_REPORT_PERIOD_SEC = 30;
-
-  public static final Logger LOG = LoggerFactory.getLogger(SimpleGraphiteStormMetricProcessor.class);
-
-  private static MetricsRegistry metricsRegistry = new MetricsRegistry();
-
-  @SuppressWarnings("FieldCanBeLocal")
-  private final GraphiteReporter graphiteReporter;
-
-  public SimpleGraphiteStormMetricProcessor(final String topologyName,
-                                            final String graphiteHost,
-                                            final Integer graphitePort,
-                                            final Map config) {
-    super(topologyName, graphiteHost, graphitePort, config);
-    try {
-      graphiteReporter = new GraphiteReporter(metricsRegistry,
-                                              getMetricsServerHost(),
-                                              getMetricsServerPort(),
-                                              Metric.joinNameFragments("Storm", getTopologyName()));
-
-      graphiteReporter.start(getGraphiteReportPeriod(config), TimeUnit.SECONDS);
-    } catch (final Exception e) {
-      throw new RuntimeException(e);
+    private int getGraphiteReportPeriod(final Map config) {
+        return config.containsKey(REPORT_PERIOD_IN_SEC) ?
+                Integer.parseInt(config.get(REPORT_PERIOD_IN_SEC).toString()) :
+                DEFAULT_REPORT_PERIOD_SEC;
     }
-  }
-
-  private int getGraphiteReportPeriod(final Map config) {
-    return config.containsKey(REPORT_PERIOD_IN_SEC) ?
-           Integer.parseInt(config.get(REPORT_PERIOD_IN_SEC).toString()) :
-           DEFAULT_REPORT_PERIOD_SEC;
-  }
-
-  private SettableGauge<Double> createOrUpdateGauge(final Metric metric, final MetricName metricName) {
-    final SettableGauge<Double> settableGauge =
-            (SettableGauge<Double>) metricsRegistry.newGauge(metricName, new SettableGauge<>(metric.getValue()));
-    settableGauge.setValue(metric.getValue());
-    return settableGauge;
-  }
-
-  @Override
-  public void process(final Metric metric, final IMetricsConsumer.TaskInfo taskInfo) {
-
-    final MetricName metricName = new MetricName(Metric.joinNameFragments(taskInfo.srcWorkerHost,
-                                                                          taskInfo.srcWorkerPort,
-                                                                          metric.getComponent()),
-                                                 Integer.toString(taskInfo.srcTaskId),
-                                                 metric.getOperation());
-
-    try {
-      createOrUpdateGauge(metric, metricName);
-    } catch (final Exception e) {
-      LOG.error(String.format("Unable to process metric %s", metricName.toString()), e);
-    }
-  }
 }

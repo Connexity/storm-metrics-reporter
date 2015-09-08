@@ -21,9 +21,6 @@ import java.util.Map;
  */
 public class MetricReporter implements IMetricsConsumer {
 
-  public static final String METRICS_HOST = "metric.reporter.host";
-  public static final String METRICS_PORT = "metric.reporter.port";
-
   private MetricMatcher allowedMetrics;
   private StormMetricProcessor stormMetricProcessor;
 
